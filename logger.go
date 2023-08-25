@@ -17,30 +17,32 @@ func (w *loggerResponseWriter) WriteHeader(statusCode int) {
 	w.ResponseWriter.WriteHeader(statusCode)
 }
 
-func CanonicalLogger(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		startedAt := time.Now()
-		attributes := map[string]interface{}{}
-		wrappedWriter := &loggerResponseWriter{ResponseWriter: w}
-		defer func() {
-			var logAttrs []any
-			for key, value := range attributes {
-				logAttrs = append(logAttrs, slog.Any(key, value))
-			}
+func CanonicalLogger(logger *slog.Logger) func(h http.Handler) http.Handler {
+	return func(h http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			startedAt := time.Now()
+			attributes := map[string]interface{}{}
+			wrappedWriter := &loggerResponseWriter{ResponseWriter: w}
+			defer func() {
+				var logAttrs []any
+				for key, value := range attributes {
+					logAttrs = append(logAttrs, slog.Any(key, value))
+				}
 
-			slog.Info("http.request", append(
-				logAttrs,
-				slog.String("http.url", r.RequestURI),
-				slog.String("http.method", r.Method),
-				slog.Int("http.status", wrappedWriter.statusCode),
-				slog.Duration("duration", time.Now().Sub(startedAt)),
-				slog.String("ip", r.RemoteAddr),
-			)...)
-		}()
+				logger.Info("http.request", append(
+					logAttrs,
+					slog.String("http.url", r.RequestURI),
+					slog.String("http.method", r.Method),
+					slog.Int("http.status", wrappedWriter.statusCode),
+					slog.Duration("duration", time.Now().Sub(startedAt)),
+					slog.String("ip", r.RemoteAddr),
+				)...)
+			}()
 
-		r = r.WithContext(context.WithValue(r.Context(), "dise.logger", attributes))
-		h.ServeHTTP(wrappedWriter, r)
-	})
+			r = r.WithContext(context.WithValue(r.Context(), "dise.logger", attributes))
+			h.ServeHTTP(wrappedWriter, r)
+		})
+	}
 }
 
 func LogAttr(ctx context.Context, key string, value interface{}) {
