@@ -1,11 +1,11 @@
-package dise
+package old
 
 import (
 	"fmt"
 	"net/http"
 )
 
-type Handler func(r *Request) (Response, error)
+type Handler[S any, P any] func(r *Request) (Response, error)
 
 func Wrap(h Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
