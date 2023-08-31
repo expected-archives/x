@@ -2,10 +2,11 @@ package xfoundation
 
 import (
 	"context"
-	"go.uber.org/dig"
+	"fmt"
 	"go.uber.org/zap"
 	"os"
 	"os/signal"
+	"reflect"
 	"syscall"
 )
 
@@ -18,9 +19,9 @@ type (
 		Env        string
 		Logger     *zap.Logger
 		Providers  []Provider
-		container  *dig.Container
 		startHooks []func(ctx context.Context) error
 		stopHooks  []func(ctx context.Context) error
+		values     map[reflect.Type]reflect.Value
 	}
 )
 
@@ -30,7 +31,7 @@ const (
 )
 
 func (app *App) Run() {
-	app.container = dig.New()
+	app.values = make(map[reflect.Type]reflect.Value)
 	if app.Env == "" {
 		app.Env = AppEnvDevelopment
 	}
@@ -80,10 +81,32 @@ func (app *App) OnStop(hook func(ctx context.Context) error) {
 }
 
 func (app *App) Provide(v any) {
-	app.container.
-		app.container.Provide(func() any {
-		return v
-	})
+	app.values[reflect.TypeOf(v)] = reflect.ValueOf(v)
+}
+
+func (app *App) Invoke(f any) ([]reflect.Value, error) {
+	fType := reflect.TypeOf(f)
+	if fType.Kind() != reflect.Func {
+		return nil, fmt.Errorf("app.Invoke: invalid func type %v", fType)
+	}
+	var dependencies []reflect.Value
+	for i := 0; i < fType.NumIn(); i++ {
+		depType := fType.In(i)
+		value, ok := app.values[depType]
+		if !ok {
+			return nil, fmt.Errorf("app.Invoke: cannot find dependency %v", depType)
+		}
+		dependencies = append(dependencies, value)
+	}
+
+	returnValues := reflect.ValueOf(f).Call(dependencies)
+	if returnValuesLen := len(returnValues); returnValuesLen > 0 {
+		if err, ok := returnValues[returnValuesLen-1].Interface().(error); ok && err != nil {
+			return nil, err
+		}
+		returnValues = returnValues[:returnValuesLen-1]
+	}
+	return returnValues, nil
 }
 
 func panicOnError[T any](value T, err error) T {

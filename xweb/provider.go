@@ -2,6 +2,7 @@ package xweb
 
 import (
 	"context"
+	"fmt"
 	"github.com/caumette-co/x/xfoundation"
 	"go.uber.org/zap"
 	"net"
@@ -32,6 +33,11 @@ func (p *Provider) Register(app *xfoundation.App) error {
 	app.OnStop(func(ctx context.Context) error {
 		return httpServer.Shutdown(ctx)
 	})
+
+	fmt.Println(app.Invoke(func(logger *zap.Logger) error {
+		logger.Info("ca fonctionne wow")
+		return nil
+	}))
 
 	return nil
 }
