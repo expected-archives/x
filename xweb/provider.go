@@ -2,7 +2,6 @@ package xweb
 
 import (
 	"context"
-	"fmt"
 	"github.com/caumette-co/x/xfoundation"
 	"go.uber.org/zap"
 	"net"
@@ -17,6 +16,7 @@ type Provider struct {
 func (p *Provider) Register(app *xfoundation.App) error {
 	router := newRouter(app)
 	app.Provide(router)
+	app.Provide(p)
 	httpServer := &http.Server{Handler: router.handler}
 
 	app.OnStart(func(ctx context.Context) error {
@@ -33,11 +33,6 @@ func (p *Provider) Register(app *xfoundation.App) error {
 	app.OnStop(func(ctx context.Context) error {
 		return httpServer.Shutdown(ctx)
 	})
-
-	fmt.Println(app.Invoke(func(logger *zap.Logger) error {
-		logger.Info("ca fonctionne wow")
-		return nil
-	}))
 
 	return nil
 }

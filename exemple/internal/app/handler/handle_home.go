@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-func HandleHome(web *xweb.Provider) http.HandlerFunc {
+func HandleHome(web *xweb.Provider) func(http.ResponseWriter, *http.Request) {
 	//web.AddTemplate("layouts/landing.html", "home/index.html")
 	//web.AddValidator("unique-user-email", func() {})
 
@@ -15,8 +15,7 @@ func HandleHome(web *xweb.Provider) http.HandlerFunc {
 	}
 }
 
-func AuthMiddleware() {
-	return func() (*Response, error) {
-		return nil, nil
-	}
+func HandleDirect(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write([]byte("ok"))
 }

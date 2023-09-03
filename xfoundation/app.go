@@ -105,10 +105,12 @@ func (app *App) Invoke(f any) ([]reflect.Value, error) {
 
 	returnValues := reflect.ValueOf(f).Call(dependencies)
 	if returnValuesLen := len(returnValues); returnValuesLen > 0 {
-		if err, ok := returnValues[returnValuesLen-1].Interface().(error); ok && err != nil {
-			return nil, err
+		if err, ok := returnValues[returnValuesLen-1].Interface().(error); ok {
+			if err != nil {
+				return nil, err
+			}
+			returnValues = returnValues[:returnValuesLen-1]
 		}
-		returnValues = returnValues[:returnValuesLen-1]
 	}
 	return returnValues, nil
 }

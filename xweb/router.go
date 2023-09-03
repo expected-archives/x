@@ -3,7 +3,9 @@ package xweb
 import (
 	"github.com/caumette-co/x/xfoundation"
 	"github.com/gorilla/mux"
+	"go.uber.org/zap"
 	"net/http"
+	"reflect"
 )
 
 type Router struct {
@@ -19,7 +21,30 @@ func newRouter(app *xfoundation.App) *Router {
 }
 
 func (r *Router) Route(method, path string, handler any) {
-	r.handler.Methods(method).Path(path).HandlerFunc(handler.(func() http.HandlerFunc)())
+	handlerType := reflect.TypeOf(handler)
+	log := r.app.Logger.With(
+		zap.String("method", method), zap.String("path", path), zap.Any("handler", handlerType))
+	if handlerType.Kind() != reflect.Func {
+		log.Error("route handler must be a func")
+		return
+	}
+
+	if handlerType.NumOut() == 1 && handlerType.Out(0).Kind() == reflect.Func {
+		values, err := r.app.Invoke(handler)
+		if err != nil {
+			log.Error("failed to invoke route constructor", zap.Error(err))
+			return
+		} else if len(values) != 1 {
+			log.Error("an handler func must be returned", zap.Error(err))
+			return
+		}
+		handler = values[0].Interface()
+	}
+
+	if value, ok := handler.(func(http.ResponseWriter, *http.Request)); ok {
+		handler = http.HandlerFunc(value)
+	}
+	r.handler.Methods(method).Path(path).Handler(handler.(http.HandlerFunc))
 }
 
 func (r *Router) Use(handler ...any) {
