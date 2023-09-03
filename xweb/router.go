@@ -41,9 +41,15 @@ func (r *Router) Route(method, path string, handler any) {
 		handler = values[0].Interface()
 	}
 
-	if value, ok := handler.(func(http.ResponseWriter, *http.Request)); ok {
+	switch value := handler.(type) {
+	case func(http.ResponseWriter, *http.Request):
 		handler = http.HandlerFunc(value)
+	case Handler[any]:
+		handler = WrapHandler(value)
+	case func(r *Request[any]) (Response, error):
+		handler = WrapHandler(value)
 	}
+
 	r.handler.Methods(method).Path(path).Handler(handler.(http.HandlerFunc))
 }
 

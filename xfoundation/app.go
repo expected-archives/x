@@ -50,7 +50,7 @@ func (app *App) Run() {
 	app.Provide(app.Logger)
 
 	for _, provider := range app.Providers {
-		log := app.Logger.With(zap.Any("provider", provider))
+		log := app.Logger.With(zap.Any("provider", reflect.TypeOf(provider)))
 		if err := provider.Register(app); err != nil {
 			log.Fatal("failed to register provider", zap.Error(err))
 		}

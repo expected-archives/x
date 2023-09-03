@@ -19,3 +19,10 @@ func HandleDirect(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write([]byte("ok"))
 }
+
+func HandleNew(r *xweb.Request[any]) (xweb.Response, error) {
+	return xweb.JSONResponse{
+		StatusCode: http.StatusOK,
+		Payload:    map[string]interface{}{"hello": true},
+	}, nil
+}

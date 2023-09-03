@@ -1,4 +1,4 @@
-package old
+package xweb
 
 import (
 	"encoding/json"
@@ -19,11 +19,6 @@ type (
 		Payload    interface{}
 		StatusCode int
 		Headers    http.Header
-	}
-
-	ErrorPayload struct {
-		Message string            `json:"message,omitempty"`
-		Fields  map[string]string `json:"fields,omitempty"`
 	}
 )
 
