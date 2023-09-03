@@ -15,6 +15,10 @@ type (
 		Register(app *App) error
 	}
 
+	Scopeable[T any] interface {
+		Scope() (T, error)
+	}
+
 	App struct {
 		Env        string
 		Logger     *zap.Logger
