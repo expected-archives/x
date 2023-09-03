@@ -24,7 +24,7 @@ func (r *Request[P]) Valid() error {
 
 func (r *Request[P]) parseParams() (*P, error) {
 	params := new(P)
-	binder := binding.NewBinder(binding.StringsParamExtractors, binding.ValuesParamExtractors)
+	binder := binding.NewBinder(binding.StringsParamExtractors, binding.ValuesParamExtractors) // TODO - move it :)
 	// todo: ALEXIS :o /!\ URGENT PRIO POUR HIER
 	_ = binder.Bind(r.Request, params)
 	return params, nil
