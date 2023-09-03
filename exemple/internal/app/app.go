@@ -20,5 +20,6 @@ var Default = xfoundation.App{
 func Routes(router *xweb.Router) {
 	router.Get("/", handler.HandleHome)
 	router.Get("/direct", handler.HandleDirect)
-	router.Get("/new", handler.HandleNew)
+	router.Get("/new", xweb.Handler[any](handler.HandleNew))
+	router.Get("/new2", handler.HandleNew2)
 }

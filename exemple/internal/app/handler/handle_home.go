@@ -26,3 +26,12 @@ func HandleNew(r *xweb.Request[any]) (xweb.Response, error) {
 		Payload:    map[string]interface{}{"hello": true},
 	}, nil
 }
+
+func HandleNew2() xweb.Handler[any] {
+	return func(r *xweb.Request[any]) (xweb.Response, error) {
+		return xweb.JSONResponse{
+			StatusCode: http.StatusOK,
+			Payload:    map[string]interface{}{"hello": true},
+		}, nil
+	}
+}
