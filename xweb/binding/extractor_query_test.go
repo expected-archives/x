@@ -1,4 +1,4 @@
-package params
+package binding
 
 import (
 	"github.com/gavv/httpexpect/v2"

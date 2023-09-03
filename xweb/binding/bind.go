@@ -1,4 +1,4 @@
-package params
+package binding
 
 import (
 	"encoding"
@@ -52,7 +52,7 @@ func NewBinder(stringsExtractors []StringsParamExtractor, valueExtractors []Valu
 	return &b
 }
 
-func (b *Binder) Bind(request *http.Request, w http.ResponseWriter, params any) []error {
+func (b *Binder) Bind(request *http.Request, params any) []error {
 	errors := make([]error, 0)
 
 	dec := NewDecoder(
@@ -67,7 +67,7 @@ func (b *Binder) Bind(request *http.Request, w http.ResponseWriter, params any) 
 
 	paramsType := reflect.TypeOf(params)
 
-	if err := b.bindBody(request, w, params); err != nil {
+	if err := b.bindBody(request, params); err != nil {
 		errors = append(errors, err)
 	}
 
@@ -118,15 +118,13 @@ func validateParam(param any) error {
 // - application/json
 // - application/xml
 // - text/plain
-func (b *Binder) bindBody(r *http.Request, w http.ResponseWriter, params any) error {
+func (b *Binder) bindBody(r *http.Request, params any) error {
 	if r.ContentLength == 0 {
 		return nil
 	}
 
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
-		r.Body = http.MaxBytesReader(w, r.Body, MaxBodySize)
-
-		bytesBody, err := io.ReadAll(r.Body)
+		bytesBody, err := io.ReadAll(io.LimitReader(r.Body, MaxBodySize))
 		if err != nil {
 			return BindBodyError{
 				error:       fmt.Errorf("unable to read body: %w", err),
@@ -143,9 +141,7 @@ func (b *Binder) bindBody(r *http.Request, w http.ResponseWriter, params any) er
 	}
 
 	if strings.HasPrefix(r.Header.Get("Content-Type"), "application/xml") {
-		r.Body = http.MaxBytesReader(w, r.Body, 256*1024)
-
-		bytesBody, err := io.ReadAll(r.Body)
+		bytesBody, err := io.ReadAll(io.LimitReader(r.Body, MaxBodySize))
 		if err != nil {
 			return BindBodyError{
 				error:       fmt.Errorf("unable to read body: %w", err),
@@ -166,7 +162,7 @@ func (b *Binder) bindBody(r *http.Request, w http.ResponseWriter, params any) er
 			return nil
 		}
 
-		bytesBody, err := io.ReadAll(r.Body)
+		bytesBody, err := io.ReadAll(io.LimitReader(r.Body, MaxBodySize))
 		if err != nil {
 			return fmt.Errorf("unable to read body: %w", err)
 		}

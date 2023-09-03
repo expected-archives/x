@@ -1,4 +1,4 @@
-package params
+package binding
 
 // TagsPath is a simple map that register from a tag the path of the field.
 type TagsPath map[string]string

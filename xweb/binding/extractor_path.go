@@ -1,4 +1,4 @@
-package params
+package binding
 
 import (
 	"github.com/go-chi/chi"

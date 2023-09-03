@@ -1,9 +1,8 @@
 package xweb
 
 import (
-	"encoding/json"
+	"github.com/caumette-co/x/xweb/binding"
 	"net/http"
-	"strings"
 )
 
 type Request[P any] struct {
@@ -25,8 +24,8 @@ func (r *Request[P]) Valid() error {
 
 func (r *Request[P]) parseParams() (*P, error) {
 	params := new(P)
-	if contentType := r.Header.Get("Content-Type"); strings.HasPrefix(contentType, "application/json") {
-		return params, json.NewDecoder(r.Body).Decode(params)
-	}
+	binder := binding.NewBinder(binding.StringsParamExtractors, binding.ValuesParamExtractors)
+	// todo: ALEXIS :o /!\ URGENT PRIO POUR HIER
+	_ = binder.Bind(r.Request, params)
 	return params, nil
 }
