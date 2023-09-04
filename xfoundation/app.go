@@ -15,17 +15,17 @@ type (
 		Register(app *App) error
 	}
 
-	Scopeable[T any] interface {
-		Scope() (T, error)
-	}
-
 	App struct {
+		Container
 		Env        string
 		Logger     *zap.Logger
 		Providers  []Provider
 		startHooks []func(ctx context.Context) error
 		stopHooks  []func(ctx context.Context) error
-		values     map[reflect.Type]reflect.Value
+	}
+
+	Container struct {
+		values map[reflect.Type]reflect.Value
 	}
 )
 
@@ -58,7 +58,6 @@ func (app *App) Run() {
 	}
 
 	ctx := context.Background()
-
 	for _, hook := range app.startHooks {
 		if err := hook(ctx); err != nil {
 			app.Logger.Fatal("failed to start hook", zap.Error(err))
@@ -84,11 +83,11 @@ func (app *App) OnStop(hook func(ctx context.Context) error) {
 	app.stopHooks = append(app.stopHooks, hook)
 }
 
-func (app *App) Provide(v any) {
-	app.values[reflect.TypeOf(v)] = reflect.ValueOf(v)
+func (c *Container) Provide(v any) {
+	c.values[reflect.TypeOf(v)] = reflect.ValueOf(v)
 }
 
-func (app *App) Invoke(f any) ([]reflect.Value, error) {
+func (c *Container) Invoke(f any) ([]reflect.Value, error) {
 	fType := reflect.TypeOf(f)
 	if fType.Kind() != reflect.Func {
 		return nil, fmt.Errorf("app.Invoke: invalid func type %v", fType)
@@ -96,7 +95,7 @@ func (app *App) Invoke(f any) ([]reflect.Value, error) {
 	var dependencies []reflect.Value
 	for i := 0; i < fType.NumIn(); i++ {
 		depType := fType.In(i)
-		value, ok := app.values[depType]
+		value, ok := c.values[depType]
 		if !ok {
 			return nil, fmt.Errorf("app.Invoke: cannot find dependency %v", depType)
 		}
