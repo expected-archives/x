@@ -9,7 +9,8 @@ import (
 )
 
 type Provider struct {
-	Addr   string
+	Addr string
+
 	Routes func(router *Router)
 }
 

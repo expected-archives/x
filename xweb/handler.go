@@ -1,15 +1,18 @@
 package xweb
 
 import (
+	"github.com/caumette-co/x/xweb/binding"
 	"net/http"
 )
 
 type Handler[P any] func(r *Request[P]) (Response, error)
 
 func (h Handler[P]) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	xr := &Request[P]{Request: r}
+	xr := newRequest[P](r, binding.Default) // TODO: inject binder in some way to allow customize it binder
 	response, err := h(xr)
 	if err != nil {
+		// todo:
+		// - read accept content type
 		//if wrappedError, ok := err.(*errorWithResponse); ok {
 		//	response = wrappedError.response
 		//} else {
@@ -19,6 +22,13 @@ func (h Handler[P]) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		//		Payload:    ErrorPayload{Message: http.StatusText(http.StatusInternalServerError)},
 		//	}
 		//}
+
+		// TODO: handle error properly
+
+		w.WriteHeader(http.StatusInternalServerError)
+		w.Write([]byte(err.Error()))
+
+		return
 	}
 
 	if response == nil {

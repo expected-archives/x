@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"github.com/caumette-co/x/xweb"
 	"net/http"
 )
@@ -34,4 +35,17 @@ func HandleNew2() xweb.Handler[any] {
 			Payload:    map[string]interface{}{"hello": true},
 		}, nil
 	}
+}
+
+type Contact struct {
+	Email string `query:"email"`
+}
+
+func HandleContact(r *xweb.Request[Contact]) (xweb.Response, error) {
+	fmt.Println(r.Params().Email)
+
+	return xweb.JSONResponse{
+		StatusCode: http.StatusOK,
+		Payload:    map[string]interface{}{"hello": true},
+	}, nil
 }

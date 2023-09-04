@@ -38,5 +38,11 @@ func (r JSONResponse) GetStatusCode() int {
 }
 
 func (r JSONResponse) GetHeaders() http.Header {
+	if r.Headers == nil {
+		r.Headers = http.Header{}
+	}
+
+	r.Headers.Set("Content-Type", "application/json")
+
 	return r.Headers
 }

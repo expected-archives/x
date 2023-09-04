@@ -32,7 +32,7 @@ func TestBinder_Bind(t *testing.T) {
 		r = r.WithContext(context.WithValue(r.Context(), "fromContext", "value"))
 
 		var test testStruct
-		err := binder.Bind(r, w, &test)
+		err := binder.Bind(r, &test)
 		require.Len(t, err, 0)
 
 		require.Equal(t, "value", test.FromPath)
@@ -70,7 +70,7 @@ func TestBinder_Bind(t *testing.T) {
 
 		chi.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			var test testStruct
-			err := binder.Bind(r, w, &test)
+			err := binder.Bind(r, &test)
 			require.Len(t, err, 0)
 
 			require.Equal(t, "value", test.FromForm)
@@ -105,7 +105,7 @@ func TestBinder_Bind(t *testing.T) {
 
 		chi.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 			var test testStruct
-			err := binder.Bind(r, w, &test)
+			err := binder.Bind(r, &test)
 			require.Len(t, err, 1)
 
 			require.IsType(t, &FieldSetterError{}, err[0])

@@ -4,7 +4,6 @@ import (
 	"encoding"
 	"encoding/json"
 	"encoding/xml"
-	"errors"
 	"fmt"
 	"github.com/samber/lo"
 	"io"
@@ -13,12 +12,17 @@ import (
 	"strings"
 )
 
-var ErrInvalidParam = errors.New("invalid params: only ptr to a struct or string are accepted")
+var Default = NewBinder(
+	StringsParamExtractors,
+	ValuesParamExtractors,
+)
 
-var MaxBodySize = int64(256 * 1024)
+type Binder interface {
+	Bind(request *http.Request, params any) error
+}
 
-// Binder allow to bind params from a request to a struct.
-type Binder struct {
+// bind allow to bind params from a request to a struct.
+type bind struct {
 	structCaches map[reflect.Type]StructCache
 
 	stringsExtractors []StringsParamExtractor
@@ -28,8 +32,8 @@ type Binder struct {
 	valuesTags  []string
 }
 
-func NewBinder(stringsExtractors []StringsParamExtractor, valueExtractors []ValueParamExtractor) *Binder {
-	b := Binder{
+func NewBinder(stringsExtractors []StringsParamExtractor, valueExtractors []ValueParamExtractor) Binder {
+	b := bind{
 		stringsExtractors: stringsExtractors,
 		valueExtractors:   valueExtractors,
 
@@ -52,7 +56,7 @@ func NewBinder(stringsExtractors []StringsParamExtractor, valueExtractors []Valu
 	return &b
 }
 
-func (b *Binder) Bind(request *http.Request, params any) []error {
+func (b *bind) Bind(request *http.Request, params any) error {
 	errors := make([]error, 0)
 
 	dec := NewDecoder(
@@ -61,8 +65,8 @@ func (b *Binder) Bind(request *http.Request, params any) []error {
 		b.valueExtractors,
 	)
 
-	if err := validateParam(params); err != nil {
-		return []error{err}
+	if err := b.isPointerToStruct(params); err != nil {
+		return &BindingError{Errors: []error{err}}
 	}
 
 	paramsType := reflect.TypeOf(params)
@@ -71,31 +75,26 @@ func (b *Binder) Bind(request *http.Request, params any) []error {
 		errors = append(errors, err)
 	}
 
-	if reflect.ValueOf(params).Kind() != reflect.String {
-		var (
-			structCache StructCache
-			ok          bool
-		)
+	var (
+		structCache StructCache
+		ok          bool
+	)
 
-		if structCache, ok = b.structCaches[paramsType]; !ok {
-			structCache = NewStructAnalyzer(b.stringsTags, b.valuesTags, paramsType).Cache()
-			b.structCaches[paramsType] = structCache
-		}
-
-		if errs := dec.Decode(structCache, reflect.ValueOf(params)); errs != nil {
-			errors = append(errors, errs...)
-		}
+	if structCache, ok = b.structCaches[paramsType]; !ok {
+		structCache = NewStructAnalyzer(b.stringsTags, b.valuesTags, paramsType).Cache()
+		b.structCaches[paramsType] = structCache
 	}
 
-	return errors
+	if errs := dec.Decode(structCache, reflect.ValueOf(params)); errs != nil {
+		errors = append(errors, errs...)
+	}
+
+	return &BindingError{Errors: errors}
 
 }
 
-// validateParam validate if the param is valid.
-// Accepted values :
-// - pointer to a struct
-// - string
-func validateParam(param any) error {
+// isPointerToStruct ensure that the params is a pointer to a struct
+func (b *bind) isPointerToStruct(param any) error {
 	ref := reflect.ValueOf(param)
 
 	if ref.Kind() == reflect.Ptr {
@@ -106,19 +105,17 @@ func validateParam(param any) error {
 		}
 	}
 
-	if ref.Kind() == reflect.String {
-		return nil
-	}
-
 	return ValidateParamsError{error: ErrInvalidParam}
 }
+
+var MaxBodySize = int64(256 * 1024)
 
 // bindBody bind the body of the request to the params.
 // it supports 3 types of content-type:
 // - application/json
 // - application/xml
 // - text/plain
-func (b *Binder) bindBody(r *http.Request, params any) error {
+func (b *bind) bindBody(r *http.Request, params any) error {
 	if r.ContentLength == 0 {
 		return nil
 	}

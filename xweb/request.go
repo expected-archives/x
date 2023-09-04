@@ -7,25 +7,32 @@ import (
 
 type Request[P any] struct {
 	*http.Request
-	params      *P
-	paramsError error
+	params *P
+
+	binder       binding.Binder
+	bindingError error
+}
+
+func newRequest[P any](request *http.Request, binder binding.Binder) *Request[P] {
+	return &Request[P]{
+		Request: request,
+		binder:  binder,
+	}
 }
 
 func (r *Request[P]) Params() *P {
 	if r.params == nil {
-		r.params, r.paramsError = r.parseParams()
+		r.params, r.bindingError = r.parseParams()
 	}
 	return r.params
 }
 
-func (r *Request[P]) Valid() error {
-	return r.paramsError
+func (r *Request[P]) BindingErrors() error {
+	return r.bindingError
 }
 
 func (r *Request[P]) parseParams() (*P, error) {
 	params := new(P)
-	binder := binding.NewBinder(binding.StringsParamExtractors, binding.ValuesParamExtractors) // TODO - move it :)
-	// todo: ALEXIS :o /!\ URGENT PRIO POUR HIER
-	_ = binder.Bind(r.Request, params)
-	return params, nil
+	err := r.binder.Bind(r.Request, params)
+	return params, err
 }
