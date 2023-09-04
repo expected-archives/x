@@ -2,7 +2,7 @@ package xweb
 
 import (
 	"github.com/caumette-co/x/xfoundation"
-	"github.com/gorilla/mux"
+	"github.com/go-chi/chi"
 	"go.uber.org/zap"
 	"net/http"
 	"reflect"
@@ -10,13 +10,13 @@ import (
 
 type Router struct {
 	app     *xfoundation.App
-	handler *mux.Router
+	handler *chi.Mux
 }
 
 func newRouter(app *xfoundation.App) *Router {
 	return &Router{
 		app:     app,
-		handler: mux.NewRouter(),
+		handler: chi.NewRouter(),
 	}
 }
 
@@ -45,7 +45,7 @@ func (r *Router) Route(method, path string, handler any) {
 	if value, ok := handler.(func(http.ResponseWriter, *http.Request)); ok {
 		handler = http.HandlerFunc(value)
 	}
-	r.handler.Methods(method).Path(path).Handler(handler.(http.Handler))
+	r.handler.Method(method, path, handler.(http.Handler))
 }
 
 func (r *Router) Use(handler ...any) {

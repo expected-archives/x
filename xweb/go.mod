@@ -8,7 +8,6 @@ require (
 	github.com/caumette-co/x/xfoundation v0.0.0-00010101000000-000000000000
 	github.com/gavv/httpexpect/v2 v2.15.0
 	github.com/go-chi/chi v1.5.4
-	github.com/gorilla/mux v1.8.0
 	github.com/samber/lo v1.38.1
 	github.com/stretchr/testify v1.8.1
 	go.uber.org/zap v1.25.0
