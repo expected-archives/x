@@ -2,6 +2,7 @@ package xweb
 
 import (
 	"context"
+	"fmt"
 	"github.com/caumette-co/x/xfoundation"
 	"go.uber.org/zap"
 	"net"
@@ -16,8 +17,13 @@ type Provider struct {
 
 func (p *Provider) Register(app *xfoundation.App) error {
 	router := newRouter(app)
-	app.Provide(router)
-	app.Provide(p)
+	if err := app.Provide(xfoundation.ProvideSingleValueFunc(router)); err != nil {
+		return fmt.Errorf("failed to provide *webx.Router: %w", err)
+	}
+	if err := app.Provide(xfoundation.ProvideSingleValueFunc(p)); err != nil {
+		return fmt.Errorf("failed to provide *webx.Provider: %w", err)
+	}
+
 	httpServer := &http.Server{Handler: router.handler}
 
 	app.OnStart(func(ctx context.Context) error {

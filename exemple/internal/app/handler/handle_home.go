@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"github.com/caumette-co/x/xweb"
 	"net/http"
@@ -39,6 +40,10 @@ func HandleNew2() xweb.Handler[any] {
 
 type Contact struct {
 	Email string `query:"email"`
+}
+
+func (c Contact) Validate() error {
+	return errors.New("not implemented")
 }
 
 func HandleContact(r *xweb.Request[Contact]) (xweb.Response, error) {

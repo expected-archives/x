@@ -2,7 +2,8 @@ package xfoundation
 
 import (
 	"context"
-	"fmt"
+	"github.com/expectedsh/dig"
+	"github.com/samber/lo"
 	"go.uber.org/zap"
 	"os"
 	"os/signal"
@@ -16,38 +17,39 @@ type (
 	}
 
 	App struct {
-		Container
-		Env        string
+		Container *dig.Container
+
+		Env        AppEnv
 		Logger     *zap.Logger
 		Providers  []Provider
 		startHooks []func(ctx context.Context) error
 		stopHooks  []func(ctx context.Context) error
 	}
 
-	Container struct {
-		values map[reflect.Type]reflect.Value
-	}
+	AppEnv string
 )
 
 const (
-	AppEnvProduction  = "production"
-	AppEnvDevelopment = "development"
+	AppEnvProduction  AppEnv = "production"
+	AppEnvDevelopment AppEnv = "development"
 )
 
 func (app *App) Run() {
-	app.values = make(map[reflect.Type]reflect.Value)
+	app.Container = dig.New()
+
 	if app.Env == "" {
 		app.Env = AppEnvDevelopment
 	}
 
 	if app.Logger == nil {
 		if app.Env == AppEnvProduction {
-			app.Logger = panicOnError(zap.NewProduction())
+			app.Logger = lo.Must(zap.NewProduction())
 		} else {
-			app.Logger = panicOnError(zap.NewDevelopment())
+			app.Logger = lo.Must(zap.NewDevelopment())
 		}
 	}
-	app.Provide(app.Logger)
+
+	lo.Must0(app.Provide(ProvideSingleValueFunc(app.Logger)))
 
 	for _, provider := range app.Providers {
 		log := app.Logger.With(zap.Any("provider", reflect.TypeOf(provider)))
@@ -83,40 +85,21 @@ func (app *App) OnStop(hook func(ctx context.Context) error) {
 	app.stopHooks = append(app.stopHooks, hook)
 }
 
-func (c *Container) Provide(v any) {
-	c.values[reflect.TypeOf(v)] = reflect.ValueOf(v)
+func (app *App) Provide(v any) error {
+	return app.Container.Provide(v)
 }
 
-func (c *Container) Invoke(f any) ([]reflect.Value, error) {
-	fType := reflect.TypeOf(f)
-	if fType.Kind() != reflect.Func {
-		return nil, fmt.Errorf("app.Invoke: invalid func type %v", fType)
-	}
-	var dependencies []reflect.Value
-	for i := 0; i < fType.NumIn(); i++ {
-		depType := fType.In(i)
-		value, ok := c.values[depType]
-		if !ok {
-			return nil, fmt.Errorf("app.Invoke: cannot find dependency %v", depType)
-		}
-		dependencies = append(dependencies, value)
-	}
-
-	returnValues := reflect.ValueOf(f).Call(dependencies)
-	if returnValuesLen := len(returnValues); returnValuesLen > 0 {
-		if err, ok := returnValues[returnValuesLen-1].Interface().(error); ok {
-			if err != nil {
-				return nil, err
-			}
-			returnValues = returnValues[:returnValuesLen-1]
-		}
-	}
-	return returnValues, nil
+func ProvideSingleValueFunc[T any](v T) func() T {
+	return func() T { return v }
 }
 
-func panicOnError[T any](value T, err error) T {
+func (a App) Invoke(f any) ([]reflect.Value, error) {
+	invokeInfo := dig.InvokeInfo{}
+
+	err := a.Container.Invoke(f, dig.FillInvokeInfo(&invokeInfo))
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	return value
+
+	return invokeInfo.Outputs, nil
 }

@@ -8,7 +8,7 @@ import (
 )
 
 var Default = xfoundation.App{
-	Env: os.Getenv("APP_ENV"),
+	Env: xfoundation.AppEnv(os.Getenv("APP_ENV")),
 	Providers: []xfoundation.Provider{
 		&xweb.Provider{
 			Addr:   os.Getenv("ADDR"),
