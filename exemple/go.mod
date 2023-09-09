@@ -6,8 +6,11 @@ replace github.com/caumette-co/x/xfoundation => ../xfoundation
 
 replace github.com/caumette-co/x/xweb => ../xweb
 
+replace github.com/caumette-co/x/xrenderer => ../xrenderer
+
 require (
 	github.com/caumette-co/x/xfoundation v0.0.0-00010101000000-000000000000
+	github.com/caumette-co/x/xrenderer v0.0.0-00010101000000-000000000000
 	github.com/caumette-co/x/xweb v0.0.0-00010101000000-000000000000
 )
 

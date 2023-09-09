@@ -12,18 +12,26 @@ import (
 )
 
 type (
-	Provider interface {
-		Register(app *App) error
-	}
-
 	App struct {
 		Container *dig.Container
 
-		Env        AppEnv
-		Logger     *zap.Logger
-		Providers  []Provider
+		Env    AppEnv
+		Logger *zap.Logger
+
+		Providers []any
+
 		startHooks []func(ctx context.Context) error
 		stopHooks  []func(ctx context.Context) error
+	}
+
+	AppHandler interface {
+		OnStartup(app *App) error
+	}
+
+	AppHandlerOut struct {
+		dig.Out
+
+		Handler AppHandler `group:"x.startup_handler"`
 	}
 
 	AppEnv string
@@ -49,14 +57,37 @@ func (app *App) Run() {
 		}
 	}
 
+	app.Logger.Info("app started", zap.String("env", string(app.Env)))
+
 	lo.Must0(app.Provide(ProvideSingleValueFunc(app.Logger)))
+	lo.Must0(app.Provide(ProvideSingleValueFunc(app.Env)))
+	lo.Must0(app.Provide(ProvideSingleValueFunc(app)))
 
 	for _, provider := range app.Providers {
 		log := app.Logger.With(zap.Any("provider", reflect.TypeOf(provider)))
-		if err := provider.Register(app); err != nil {
+		if err := app.Provide(provider); err != nil {
 			log.Fatal("failed to register provider", zap.Error(err))
 		}
 		log.Info("provider registered")
+	}
+
+	type appHandlers struct {
+		dig.In
+		Handlers []AppHandler `group:"x.startup_handler"`
+	}
+
+	_, err := app.Invoke(func(handlers appHandlers) error {
+		for _, handler := range handlers.Handlers {
+			if err := handler.OnStartup(app); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		app.Logger.Fatal("failed to start app", zap.Error(err))
 	}
 
 	ctx := context.Background()
@@ -75,6 +106,8 @@ func (app *App) Run() {
 			app.Logger.Fatal("failed to stop hook", zap.Error(err))
 		}
 	}
+
+	app.Logger.Info("app stopped")
 }
 
 func (app *App) OnStart(hook func(ctx context.Context) error) {
@@ -89,11 +122,7 @@ func (app *App) Provide(v any) error {
 	return app.Container.Provide(v)
 }
 
-func ProvideSingleValueFunc[T any](v T) func() T {
-	return func() T { return v }
-}
-
-func (a App) Invoke(f any) ([]reflect.Value, error) {
+func (a *App) Invoke(f any) ([]reflect.Value, error) {
 	invokeInfo := dig.InvokeInfo{}
 
 	err := a.Container.Invoke(f, dig.FillInvokeInfo(&invokeInfo))
@@ -102,4 +131,12 @@ func (a App) Invoke(f any) ([]reflect.Value, error) {
 	}
 
 	return invokeInfo.Outputs, nil
+}
+
+func ProvideSingleValueFunc[T any](v T) func() T {
+	return func() T { return v }
+}
+
+func NewAppHandlerOut(h AppHandler) AppHandlerOut {
+	return AppHandlerOut{Handler: h}
 }

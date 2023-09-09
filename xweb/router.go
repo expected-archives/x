@@ -10,14 +10,16 @@ import (
 )
 
 type Router struct {
-	app     *xfoundation.App
-	handler *chi.Mux
+	app      *xfoundation.App
+	handler  *chi.Mux
+	provider *Web
 }
 
-func newRouter(app *xfoundation.App) *Router {
+func newRouter(app *xfoundation.App, provider *Web) *Router {
 	return &Router{
-		app:     app,
-		handler: chi.NewRouter(),
+		app:      app,
+		handler:  chi.NewRouter(),
+		provider: provider,
 	}
 }
 
@@ -59,6 +61,10 @@ func (r *Router) Delete(path string, handler any) {
 	r.Route(http.MethodDelete, path, handler)
 }
 
+type HttpHandler interface {
+	ServeHTTP(provider *Web) http.HandlerFunc
+}
+
 func (r *Router) getHttpHandler(handler any) (http.Handler, error) {
 	handlerType := reflect.TypeOf(handler)
 	if handlerType.Kind() != reflect.Func {
@@ -78,6 +84,10 @@ func (r *Router) getHttpHandler(handler any) (http.Handler, error) {
 
 	if value, ok := handler.(func(http.ResponseWriter, *http.Request)); ok {
 		handler = http.HandlerFunc(value)
+	}
+
+	if value, ok := handler.(HttpHandler); ok {
+		return value.ServeHTTP(r.provider), nil
 	}
 
 	value, ok := handler.(http.Handler)

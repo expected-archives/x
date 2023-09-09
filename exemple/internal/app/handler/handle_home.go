@@ -7,10 +7,7 @@ import (
 	"net/http"
 )
 
-func HandleHome(web *xweb.Provider) func(http.ResponseWriter, *http.Request) {
-	//web.AddTemplate("layouts/landing.html", "home/index.html")
-	//web.AddValidator("unique-user-email", func() {})
-
+func HandleHome() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("ok"))
@@ -39,7 +36,7 @@ func HandleNew2() xweb.Handler[any] {
 }
 
 type Contact struct {
-	Email string `query:"email"`
+	Email int `query:"email"`
 }
 
 func (c Contact) Validate() error {
@@ -49,8 +46,22 @@ func (c Contact) Validate() error {
 func HandleContact(r *xweb.Request[Contact]) (xweb.Response, error) {
 	fmt.Println(r.Params().Email)
 
+	err := r.Validate()
+	if err != nil {
+		return nil, err
+	}
+
 	return xweb.JSONResponse{
 		StatusCode: http.StatusOK,
 		Payload:    map[string]interface{}{"hello": true},
+	}, nil
+}
+
+func HandleView(r *xweb.Request[any]) (xweb.Response, error) {
+	return xweb.ViewResponse{
+		Name:       "index",
+		StatusCode: http.StatusOK,
+		//Data: 	 map[string]interface{}{"hello": true},
+		Layout: "base",
 	}, nil
 }
