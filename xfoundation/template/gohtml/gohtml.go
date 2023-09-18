@@ -1,4 +1,4 @@
-package xrenderer
+package gohtml
 
 import (
 	"fmt"
@@ -35,39 +35,40 @@ type Config struct {
 	PartialsFolder string
 }
 
-type Renderer struct {
+type GoHTML struct {
 	Config
+
 	templates       map[string]*template.Template
 	layoutTemplates map[string]*template.Template
 }
 
-func New(config Config) func() (contracts.RendererOut, error) {
-	return func() (contracts.RendererOut, error) {
-		p := &Renderer{
+func New(config Config) func() (contracts.TemplateEngineOut, error) {
+	return func() (contracts.TemplateEngineOut, error) {
+		p := &GoHTML{
 			Config:          config,
 			layoutTemplates: make(map[string]*template.Template),
 			templates:       make(map[string]*template.Template),
 		}
 
 		if err := p.init(); err != nil {
-			return contracts.RendererOut{}, err
+			return contracts.TemplateEngineOut{}, err
 		}
 
-		return contracts.RendererOut{
+		return contracts.TemplateEngineOut{
 			Renderer: p,
 		}, nil
 	}
 }
 
-func (p *Renderer) Render(writer io.Writer, name string, applyOptions ...contracts.RendererOptsApplier) error {
-	opts := contracts.RendererOpts{}
+func (p *GoHTML) Execute(writer io.Writer, name string, applyOptions ...contracts.TemplateEngineOptsApplier) error {
+	opts := contracts.TemplateEngineOptions{}
 	for _, applyOpt := range applyOptions {
 		applyOpt(&opts)
 	}
 
 	var tmpl *template.Template
-	if opts.Layout != "" {
-		tmpl = p.layoutTemplates[filepath.Join(opts.Layout, name)]
+	if opts.Layout != nil {
+		tmpl = p.layoutTemplates[filepath.Join(*opts.Layout, name)]
 	} else {
 		tmpl = p.templates[name]
 	}
@@ -84,11 +85,11 @@ func (p *Renderer) Render(writer io.Writer, name string, applyOptions ...contrac
 	return nil
 }
 
-func (p *Renderer) Name() string {
+func (p *GoHTML) Name() string {
 	return "x.gohtml"
 }
 
-func (p *Renderer) init() error {
+func (p *GoHTML) init() error {
 	dir, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("failed to get current directory: %w", err)
@@ -144,7 +145,7 @@ func (p *Renderer) init() error {
 	return nil
 }
 
-func (p *Renderer) getFiles(dir string) (
+func (p *GoHTML) getFiles(dir string) (
 	layoutFiles []string,
 	includeFiles []string,
 	partialsFiles []string,

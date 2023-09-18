@@ -1,3 +1,3 @@
 ### GET request with a header
-GET {{url}}/contact?email=alexis.viscogliosi@outlook.fr
+GET {{url}}/view?email=alexis.viscogliosi@outlook.fr
 Accept: application/json

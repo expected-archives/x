@@ -1,9 +1,14 @@
+{{- /*gotype: github.com/caumette-co/x/example/internal/app/handler.Contact[github.com/caumette-co/x/xfoundation/contracts.ValidationError] */ -}}
+
 {{define "title"}}Home{{end}}
 {{define "content"}}
     <ul>
+        {{ with .Test }}
+        <li>{{.}}</li>
+        {{end}}
         <li><a href="/skillset">Skillset</a></li>
         <li><a href="/aboutme">About Me</a></li>
     </ul>
 {{end}}
 
-Hello world!
+<p>Hello world {{.Data.Email}}</p>

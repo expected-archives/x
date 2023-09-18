@@ -2,6 +2,8 @@ package xfoundation
 
 import (
 	"context"
+	"github.com/caumette-co/x/xfoundation/contracts"
+	"github.com/caumette-co/x/xfoundation/template/gohtml"
 	"github.com/expectedsh/dig"
 	"github.com/samber/lo"
 	"go.uber.org/zap"
@@ -15,7 +17,7 @@ type (
 	App struct {
 		Container *dig.Container
 
-		Env    AppEnv
+		Env    Environment
 		Logger *zap.Logger
 
 		Providers []any
@@ -28,34 +30,37 @@ type (
 		OnStartup(app *App) error
 	}
 
+	// AppHandlerOut is used to inject a AppHandler
 	AppHandlerOut struct {
 		dig.Out
 
-		Handler AppHandler `group:"x.startup_handler"`
+		Handler AppHandler `group:"x.app_handler"`
 	}
 
-	AppEnv string
+	Environment string
 )
 
 const (
-	AppEnvProduction  AppEnv = "production"
-	AppEnvDevelopment AppEnv = "development"
+	EnvironmentProduction  Environment = "production"
+	EnvironmentDevelopment Environment = "development"
 )
 
 func (app *App) Run() {
 	app.Container = dig.New()
 
 	if app.Env == "" {
-		app.Env = AppEnvDevelopment
+		app.Env = EnvironmentDevelopment
 	}
 
 	if app.Logger == nil {
-		if app.Env == AppEnvProduction {
+		if app.Env == EnvironmentProduction {
 			app.Logger = lo.Must(zap.NewProduction())
 		} else {
 			app.Logger = lo.Must(zap.NewDevelopment())
 		}
 	}
+
+	zap.ReplaceGlobals(app.Logger)
 
 	app.Logger.Info("app started", zap.String("env", string(app.Env)))
 
@@ -71,12 +76,47 @@ func (app *App) Run() {
 		log.Info("provider registered")
 	}
 
+	app.provideDefaultTemplateEngines()
+	app.invokeAppHandlers()
+
+	ctx, canceler := context.WithCancel(context.Background())
+
+	app.callStartHooks(ctx)
+
+	s := make(chan os.Signal, 1)
+	signal.Notify(s, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
+	<-s
+
+	app.callStopHooks(ctx)
+
+	canceler()
+	app.Logger.Info("app stopped")
+}
+
+func (app *App) callStopHooks(ctx context.Context) {
+	for _, hook := range app.stopHooks {
+		if err := hook(ctx); err != nil {
+			app.Logger.Fatal("failed to stop hook", zap.Error(err))
+		}
+	}
+}
+
+func (app *App) callStartHooks(ctx context.Context) {
+	for _, hook := range app.startHooks {
+		if err := hook(ctx); err != nil {
+			app.Logger.Fatal("failed to start hook", zap.Error(err))
+		}
+	}
+}
+
+func (app *App) invokeAppHandlers() {
 	type appHandlers struct {
 		dig.In
-		Handlers []AppHandler `group:"x.startup_handler"`
+		Handlers []AppHandler `group:"x.app_handler"`
 	}
 
 	_, err := app.Invoke(func(handlers appHandlers) error {
+		app.Logger.Info("invoking app handlers", zap.Int("count", len(handlers.Handlers)))
 		for _, handler := range handlers.Handlers {
 			if err := handler.OnStartup(app); err != nil {
 				return err
@@ -89,25 +129,6 @@ func (app *App) Run() {
 	if err != nil {
 		app.Logger.Fatal("failed to start app", zap.Error(err))
 	}
-
-	ctx := context.Background()
-	for _, hook := range app.startHooks {
-		if err := hook(ctx); err != nil {
-			app.Logger.Fatal("failed to start hook", zap.Error(err))
-		}
-	}
-
-	s := make(chan os.Signal, 1)
-	signal.Notify(s, syscall.SIGINT, syscall.SIGTERM, syscall.SIGHUP)
-	<-s
-
-	for _, hook := range app.stopHooks {
-		if err := hook(ctx); err != nil {
-			app.Logger.Fatal("failed to stop hook", zap.Error(err))
-		}
-	}
-
-	app.Logger.Info("app stopped")
 }
 
 func (app *App) OnStart(hook func(ctx context.Context) error) {
@@ -131,6 +152,30 @@ func (a *App) Invoke(f any) ([]reflect.Value, error) {
 	}
 
 	return invokeInfo.Outputs, nil
+}
+
+func (app *App) provideDefaultTemplateEngines() {
+	type templateEngines struct {
+		dig.In
+		Engines []contracts.TemplateEngine `group:"x.template_engine"`
+	}
+
+	_, err := app.Invoke(func(engines templateEngines) error {
+		if len(engines.Engines) == 0 {
+			app.Logger.Info("no template engine provided, using default gohtml")
+			return app.Provide(gohtml.New(gohtml.Config{
+				Folder:         "views",
+				LayoutsFolder:  "layouts",
+				PartialsFolder: "partials",
+			}))
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		app.Logger.Fatal("failed to provide default template engine gohtml", zap.Error(err))
+	}
 }
 
 func ProvideSingleValueFunc[T any](v T) func() T {
