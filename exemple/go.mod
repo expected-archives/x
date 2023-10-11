@@ -3,6 +3,7 @@ module github.com/caumette-co/x/example
 go 1.21.0
 
 replace github.com/caumette-co/x/xfoundation => ../xfoundation
+
 replace github.com/caumette-co/x/xweb => ../xweb
 
 require (
@@ -11,6 +12,7 @@ require (
 )
 
 require (
+	github.com/expectedsh/dig v0.0.1-expected // indirect
 	github.com/go-chi/chi v1.5.4 // indirect
 	github.com/samber/lo v1.38.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
